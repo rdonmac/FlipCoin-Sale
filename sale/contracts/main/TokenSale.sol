@@ -26,9 +26,7 @@ contract CoinflipSale is Auth, SafeMath {
     uint            public  saleAllocation;       // Total amount of sellable tokens
 
     address         public  foundersWallet;       // wallet address of founder
-    address         public  flipcoinAddress;
 
-    // start and end timestamps where investments are allowed (both inclusive)
     uint            public  startTime;
     uint            public  endTime;
     uint            public  duration;
@@ -38,21 +36,20 @@ contract CoinflipSale is Auth, SafeMath {
     uint            public  tierTwo;              // (FLP/ETH) Token Tier-two price, triggered after tierOneLimit threshold exceeded (FLP/ETH)
     uint            public  tierThree;            // (FLP/ETH) Token Tier-three price, triggered after tierTwoLimit threshhold exceeded (FLP/ETH)
 
-    uint            public  tierOneLimit;         // tierOne price threshold
-    uint            public  tierTwoLimit;         // tierTwo price threshold
-    uint            public  tierThreeLimit;       // tierThree price threshold
+    uint            internal  tierOneLimit;         // tierOne price threshold
+    uint            internal  tierTwoLimit;         // tierTwo price threshold
+    uint            internal  tierThreeLimit;       // tierThree price threshold
 
     uint            public  totalMinted   = 0;    // total # of tokens minted, denomianted in 0 decimals for clarity
     uint            public  weiAmount     = 0;    // total amount of ether raised
-    /*uint            public  toNextLimit   = 0;    // the number of tokens sold till next pricing threshold is broken*/
 
     bool            public  saleFinalized = false;          // has Coinflip sale finalized?
     bool            public  saleStopped   = false;          // has Coinflip stopped selling?
 
     uint            public  fundingMinimum;                 // minimum-funding amount in Wei
 
-    uint  constant  public  decimalMultiplier    = 10**18 ;     // ether-to-Wei conversion
-    uint  constant  public  MINIMUM_TOKEN_SUPPLY = 5000000; // MINIMUM ETHER supply - Refer to Coinflip Sale subsection
+    uint  constant  internal  decimalMultiplier    = 10**18 ;     // ether-to-Wei conversion
+    uint  constant  internal  MINIMUM_TOKEN_SUPPLY = 5000000; // MINIMUM ETHER supply - Refer to Coinflip Sale subsection
 
     mapping (address => uint)                       public  userBuys;
     mapping (bytes32 => uint)                       public  transactionMap;
@@ -81,7 +78,7 @@ contract CoinflipSale is Auth, SafeMath {
         uint     _startTime,
         uint     _duration,
         address  _foundersWallet,
-        uint     _fundingMinimum,
+        uint     _fundingMinimum
     ) {
         startTime          = _startTime;
         duration           = _duration;
@@ -102,18 +99,24 @@ contract CoinflipSale is Auth, SafeMath {
         tierTwoLimit       = 30000000;           // - MAY ADJUST - next 30 MIL of total tokens sold @ tierTwo price in Wei
         tierThreeLimit     = 10000000;           // - MAY ADJUST  - last 10 MILof total tokens sold @ tierThree price in Wei
 
-        // Creates Flipcoin
-        Flipcoin = new Flipcoin20();
-
-        // Set Founder
-        setFounder();
-
         // Sanity checks
         assert(startTime >= time());
         assert(endTime >= startTime);
         assert(_foundersWallet != 0x0);
         assert(_fundingMinimum >= 0);
 
+    }
+
+
+    function initializeToken()
+             auth
+             public
+    {
+      // Creates Flipcoin
+      Flipcoin = new Flipcoin20();
+
+      // Set Founder
+      setFounder();
     }
 
     ////////////////////////////////////////
@@ -385,7 +388,7 @@ contract CoinflipSale is Auth, SafeMath {
    // @dev: setPrice is a public function that allows the owner to adjust token price before sale starts
 
    function setPriceFromEth(uint _ethPrice)
-            aut
+            auth
             before_sale_start
             not_finalized
             public

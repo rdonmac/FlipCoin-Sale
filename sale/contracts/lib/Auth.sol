@@ -28,7 +28,6 @@ contract Auth is AuthEvents {
     Authority public authority;
     address public owner;
     address public founder;
-    address public helper;
 
     // Auth - constructor
     function Auth() {
@@ -38,6 +37,7 @@ contract Auth is AuthEvents {
 
     // Setter functions
     function setOwner(address owner_)
+        internal
         auth
     {
         owner = owner_;
@@ -45,6 +45,7 @@ contract Auth is AuthEvents {
     }
 
     function setFounder(address founder_)
+        internal
         auth
     {
         founder = founder_;
@@ -53,6 +54,7 @@ contract Auth is AuthEvents {
     }
 
     function setAuthority(Authority authority_)
+        internal
         auth
     {
         authority = authority_;

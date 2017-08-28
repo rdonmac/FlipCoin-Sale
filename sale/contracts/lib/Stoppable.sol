@@ -16,14 +16,22 @@ contract Stoppable is Auth, Note {
 
     bool public stopped;
 
-    modifier stoppable {
+    modifier stoppable
+    {
         assert (!stopped);
         _;
     }
-    function stop() auth note {
+    function stop()
+             auth
+             note
+    {
         stopped = true;
     }
-    function start() auth note {
+
+    function start()
+             auth
+             note
+    {
         stopped = false;
     }
 
