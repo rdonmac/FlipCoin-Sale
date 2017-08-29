@@ -49,7 +49,7 @@ contract CoinflipSale is Auth, SafeMath {
     uint            public  fundingMinimum;                 // minimum-funding amount in Wei
 
     uint  constant  internal  decimalMultiplier    = 10**18 ;     // ether-to-Wei conversion
-    uint  constant  internal  MINIMUM_TOKEN_SUPPLY = 5000000; // MINIMUM ETHER supply - Refer to Coinflip Sale subsection
+    /*uint  constant  internal  MINIMUM_TOKEN_SUPPLY = 5000000; // MINIMUM ETHER supply - Refer to Coinflip Sale subsection*/
 
     mapping (address => uint)                       public  userBuys;
     mapping (bytes32 => uint)                       public  transactionMap;
@@ -210,13 +210,13 @@ contract CoinflipSale is Auth, SafeMath {
       return block.timestamp;
    }
 
-   // @dev: hasReachedMinimum is an internal functiont hat returns true if the totalMinted has reached
+   /*// @dev: hasReachedMinimum is an internal functiont hat returns true if the totalMinted has reached
    function hasReachedMinimum()
             internal
             returns (bool)
    {
       return (totalMinted >= MINIMUM_TOKEN_SUPPLY);
-   }
+   }*/
 
 
    // @dev: minReached is an internal function that returns true if the minimum ether amount has been raised
@@ -299,25 +299,26 @@ contract CoinflipSale is Auth, SafeMath {
 
 
   /*
-          If minimum is reached, Flipcoin retains 10% or 1/10 of all tokens minted.
+          If minimum is reached, Flipcoin retains 5% or 1/20 of all tokens minted.
 
-          ------TotalMinted is hence 9/10 of total supply:
+          ------TotalMinted is hence 19/20 of total supply - and founders allocation is 1/20 of total minted.
+          ------   using basic algebra - founder allocation is hence 1/19 of total supply
           ------   to calculate founder's portion, totalMinted is multiplied by 10**18 decimal places (our token decimal point)
-          ------   and then divided by 9.
+          ------   and then divided by 19.
 
   */
    function internalFinalize()
             auth
             private
    {
-     uint tokenAmount;
+       uint tokenAmount;
 
-    // @notice: if minimum has not been reached, founders get minted
-     if (hasReachedMinimum())
-     {
-       foundersAllocation = div(mul(totalMinted, decimalMultiplier),9);
-       assignFlipcoin(foundersWallet, tokenAmount);
-     }
+       if (minReached())
+       {
+         foundersAllocation = div(mul(totalMinted, decimalMultiplier),19);
+         assignFlipcoin(foundersWallet, tokenAmount);
+       }
+
        saleFinalized = true;
        saleStopped   = true;
        Flipcoin.finalized();
