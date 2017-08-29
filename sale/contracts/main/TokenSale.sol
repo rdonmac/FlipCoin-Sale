@@ -150,40 +150,6 @@ contract CoinflipSale is Auth, SafeMath {
     /* ------- Internal Functions ------- */
     ////////////////////////////////////////
 
-
-    // @dev: buyInternal is an internal function that receives ether and assigns
-    //       Flipcoins to contributer
-    // @param: (address) address of contributer
-
-    function buyInternal(address _address)
-        internal
-        during_sale_period
-        not_finalized
-        not_stopped
-        non_zero_address(_address)
-        min_eth
-    {
-
-        // Price calculation
-        uint salePrice = getPrice(totalMinted);
-        uint reward = mul(salePrice, msg.value);
-
-        // Capped crowdsale at 50 million tokens sold
-        require(withinCap(totalSupply, reward));
-
-        //Update metrics
-        weiAmount += msg.value * 1 ether;
-        userBuys[_address] += reward;
-
-        //Assign Flipcoins to investor
-        assignFlipcoin(msg.sender,reward);
-
-        //Push ether to foundersWallet
-        sendToWallet(msg.value);
-
-    }
-
-
     // @dev: isBetween is an internal function that determines if the supplied value is in between the lower and upper bound
     // @param: (uint) _lowerBound is the lower bound for domain logic
     // @param: (uint) _upperBound is the upper bound for domain logic
@@ -269,6 +235,39 @@ contract CoinflipSale is Auth, SafeMath {
    /////////////////////////////////////////
    /* -------- Private Functions -------- */
    ////////////////////////////////////////
+
+
+   // @dev: buyInternal is an internal function that receives ether and assigns
+   //       Flipcoins to contributer
+   // @param: (address) address of contributer
+
+   function buyInternal(address _address)
+       private
+       during_sale_period
+       not_finalized
+       not_stopped
+       non_zero_address(_address)
+       min_eth
+   {
+
+       // Price calculation
+       uint salePrice = getPrice(totalMinted);
+       uint reward = mul(salePrice, msg.value);
+
+       // Capped crowdsale at 50 million tokens sold
+       require(withinCap(totalSupply, reward));
+
+       //Update metrics
+       weiAmount += msg.value * 1 ether;
+       userBuys[_address] += reward;
+
+       //Assign Flipcoins to investor
+       assignFlipcoin(msg.sender,reward);
+
+       //Push ether to foundersWallet
+       sendToWallet(msg.value);
+
+   }
 
 
    // @dev: assignFlipcoin is a private function that mints contributer given amount in wei-FLP amount
@@ -408,7 +407,6 @@ contract CoinflipSale is Auth, SafeMath {
 
   function ownerMint(bytes32 _transactionHash, uint _amount, address receiver)
            auth
-           not_stopped
            not_finalized
   {
     uint tokenDecimal = mul(_amount,decimalMultiplier);
