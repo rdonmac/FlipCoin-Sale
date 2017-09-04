@@ -29,6 +29,9 @@ contract Flipcoin20 is Stoppable, Membership, Flipcoin_Standard(0) {
     // minting lock
     bool  public mintingLocked = false;
 
+    // Founder address
+    address public Founder = 0x0A9237Cd0F52834dBD4576F1A944Cdf3Fb3E2e97;
+
     // mapping of address to boolean flag of whether an address is verified
     // all boolean flags are defaulted to false
     mapping(address => bool) transferLock;
@@ -40,7 +43,7 @@ contract Flipcoin20 is Stoppable, Membership, Flipcoin_Standard(0) {
     // locks all trading activity until called otherwise
     function Flipcoin20()
     {
-      super.stop();
+      return stop();
     }
 
     // Receive ether != bueno
@@ -117,8 +120,6 @@ contract Flipcoin20 is Stoppable, Membership, Flipcoin_Standard(0) {
     ALL FUNCTIONS BELOW ARE FOR MINTING PURPOSES AND WILL BE USED ONLY DURING CROWDSALE
     - all functions below must have minting_not_locked modifier
     - mint function is only used during crowdsale period
-    @notice: auth will allow the parent contract (TokenSale.sol) and founders to access mint functions
-    @notice: minting will be locked after crowdsale ends
 
     */
 
@@ -140,8 +141,10 @@ contract Flipcoin20 is Stoppable, Membership, Flipcoin_Standard(0) {
              minting_not_locked
              returns (bool)
     {
-      mintingLocked = true;
+      mintingLocked = true; // No one can mint - including founders and owners
       super.start();
+
+      setFounder(Founder);
 
       MintFinished();
       return true;
@@ -173,14 +176,13 @@ contract Flipcoin20 is Stoppable, Membership, Flipcoin_Standard(0) {
       The following porton is used for membership management
       *modifers inherited: verifed, not_verifed
       *functions: isMember, getMemberCount, getMember, deleteMember, updateBalance, verifyMember
-      @notice: auth will allow the parent contract (TokenSale.sol) and founders to access owner functions
 
     */
 
     /*-----AUTHORITY : ALL-----*/
     // function to verify a new Member - LOCKS TOKENS
-    function Verify(string userHash)
-             not_verified(userHash)
+    function Verify(bytes32 userHash)
+             not_verified(userHash,msg.sender)
              public
              returns (bool success)
     {
@@ -192,7 +194,7 @@ contract Flipcoin20 is Stoppable, Membership, Flipcoin_Standard(0) {
     }
 
     // Alias to getMember
-    function GetMember(string userHash)
+    function GetMember(bytes32 userHash)
              public
              returns(address _userAddress, uint _balance, uint joinDate, uint index)
     {
@@ -211,7 +213,7 @@ contract Flipcoin20 is Stoppable, Membership, Flipcoin_Standard(0) {
     // UPDATE AND DELETE FUNCTIONS
 
     // function to update Member - MUST HAVE confirmMemberAccount FUNCTION
-    function UpdateMember(string userHash)
+    function UpdateMember(bytes32 userHash)
              public
              returns (bool success)
     {
@@ -223,11 +225,11 @@ contract Flipcoin20 is Stoppable, Membership, Flipcoin_Standard(0) {
 
     // function to deleteMember - MUST HAVE onlyMember MODIFIER
     // UNLOCKS TOKENS
-    function DeleteMember(string userHash)
+    function DeleteMember(bytes32 userHash)
              public
              returns (bool success)
     {
-        require(super.confirmMemberAccounst(userHash,msg.sender));
+        require(super.confirmMemberAccount(userHash,msg.sender));
         super.deleteMember(userHash);
         transferLock[msg.sender] = false;
         return true;
@@ -235,23 +237,26 @@ contract Flipcoin20 is Stoppable, Membership, Flipcoin_Standard(0) {
     }
 
 
-    /*-----AUTHORITY : Owner ONLY -----*/
-    // function to update Member - MUST HAVE onlyMember MODIFIER
-    // must have auth modifier
+    /*-----AUTHORITY : OWNER ONLY -----*/
 
-    function Owner_VerifyMember(string userHash, address _address)
-             auth
+    // Owner call to verify remote userHash
+    // function to verify a new Member - LOCKS TOKENS
+    function Verify_Owner(bytes32 userHash, address _address)
+             not_verified(userHash,_address)
              public
              returns (bool success)
     {
-      uint _balance = super.balanceOf(_address);
-      uint _time    = block.timestamp;
-      super.verifyMember(userHash,_address,_balance,_time);
-      transferLock[_address] = true;
-      return true;
+        uint _balance = super.balanceOf(_address);
+        uint _time    = block.timestamp;
+        super.verifyMember(userHash,_address,_balance,_time);
+        transferLock[_address] = true;
+        return true;
     }
 
-    function Owner_UpdateMember(string userHash, address _address)
+
+    // function to update Member - MUST HAVE onlyMember MODIFIER
+    // must have auth modifier
+    function UpdateMember_Owner(bytes32 userHash, address _address)
              auth
              public
              returns (bool success)
@@ -262,13 +267,22 @@ contract Flipcoin20 is Stoppable, Membership, Flipcoin_Standard(0) {
 
     // Owner call to delete backend - MUST HAVE auth MODIFIER
     // UNLOCKS TOKENS
-    function Owner_DeleteMember(string userHash)
+    function DeleteMember_Owner(bytes32 userHash)
              auth
              public
              returns (bool success)
     {
       super.deleteMember(userHash);
       transferLock[msg.sender] = false;
+      return true;
+    }
+
+    function DeAuthenticate_Owner(address _address)
+             auth
+             public
+             returns (bool success)
+    {
+      super.registered[_address] = false;
       return true;
     }
 

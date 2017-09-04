@@ -171,7 +171,7 @@ contract CoinflipSale is Auth, SafeMath {
         userBuys[_address] += reward;
 
         //Assign Flipcoins to investor
-        assignFlipcoin(msg.sender,reward);
+        assignFlipcoin(_address,reward);
 
         //Push ether to foundersWallet
         sendToWallet(msg.value);

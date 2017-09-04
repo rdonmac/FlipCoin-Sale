@@ -46,9 +46,13 @@ pragma solidity ^0.4.11;
 
 contract Membership {
 
+
   // private is used to prevent child-contract calls
   // hash map of account key - provided by flipcoinsale.com - to member token balance
   mapping(bytes32 => Member) private memberships;
+
+  // hash map of account address to bool flag for duplication prevent
+  mapping(address => bool)   private registered;
 
   // index array of account key
   bytes32[] private userIndex;
@@ -75,33 +79,30 @@ contract Membership {
   //READ
 
   // @dev: isMember is public function that returns a boolean type indicating whether a given _userHash is an address
-  function isMember(string userHash)
+  function isMember(bytes32 _userHash)
     public
     constant
     returns (bool indeedMember)
   {
     if(userIndex.length == 0){ return false; }
-    bytes32 _userHash = stringToBytes32(userHash);
     return (userIndex[memberships[_userHash].index] == _userHash);
   }
 
-  function confirmMemberAccount(string userHash, address _address)
+  function confirmMemberAccount(bytes32 _userHash, address _address)
     internal
     constant
-    verified(userHash)
+    verified(_userHash)
     returns(bool confirmed)
   {
-    bytes32 _userHash = stringToBytes32(userHash);
     return(memberships[_userHash].userAddress == _address);
   }
 
-  function getMember(string userHash)
+  function getMember(bytes32 _userHash)
     public
     constant
-    verified(userHash)
+    verified(_userHash)
     returns(address _userAddress, uint _balance, uint joinDate, uint index)
   {
-    bytes32 _userHash = stringToBytes32(userHash);
     return(
       memberships[_userHash].userAddress,
       memberships[_userHash].balance,
@@ -121,19 +122,20 @@ contract Membership {
   //CREATE
   //
   function verifyMember(
-    string userHash,
+    bytes32 _userHash,
     address _userAddress,
     uint _balance,
     uint _joinDate)
-    not_verified(userHash)
+    not_verified(_userHash,_userAddress)
     internal
     returns (uint index)
   {
-    bytes32 _userHash = stringToBytes32(userHash);
     memberships[_userHash].userAddress  = _userAddress;
     memberships[_userHash].balance      = _balance;
     memberships[_userHash].joinDate     = _joinDate;
     memberships[_userHash].index        = userIndex.push(_userHash)-1;
+
+    registered[_userAddress]            = true;
 
     LogNewMember(_userHash,_balance,_joinDate);
     return userIndex.length-1;
@@ -142,12 +144,11 @@ contract Membership {
 
   // UPDATE
   //
-  function updateBalance(string userHash, uint _balance)
-    verified(userHash)
+  function updateBalance(bytes32 _userHash, uint _balance)
+    verified(_userHash)
     internal
     returns(bool success)
   {
-    bytes32 _userHash = stringToBytes32(userHash);
     memberships[_userHash].balance = _balance;
     LogUpdateMember(
       _userHash,
@@ -159,12 +160,11 @@ contract Membership {
 
   // DELETE
   //
-  function deleteMember(string userHash)
-    verified(userHash)
+  function deleteMember(bytes32 _userHash)
+    verified(_userHash)
     internal
     returns(uint index)
   {
-    bytes32 _userHash = stringToBytes32(userHash);
     uint rowToDelete = memberships[_userHash].index;
     bytes32 keyToMove = userIndex[userIndex.length-1];
     userIndex[rowToDelete] = keyToMove;
@@ -178,33 +178,24 @@ contract Membership {
     return rowToDelete;
   }
 
-  ////////////////////////////////////////
-  /* -------  Internal Functions  -------*/
-  ////////////////////////////////////////
-
-  function stringToBytes32(string memory source)
-           private
-           returns (bytes32 result) {
-      assembly {
-          result := mload(add(source, 32))
-      }
-  }
 
   ////////////////////////////////////////
   /* -----------  Modifiers  -----------*/
   ////////////////////////////////////////
 
 
-  modifier not_verified(string _userHash)
+  modifier not_verified(bytes32 _userHash, address _address)
   {
     require(!isMember(_userHash));
+    require(!registered[_address]);
     _;
   }
 
-  modifier verified(string _userHash)
+  modifier verified(bytes32 _userHash)
   {
     require(isMember(_userHash));
     _;
   }
+
 
 }
