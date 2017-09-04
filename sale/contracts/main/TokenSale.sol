@@ -25,8 +25,6 @@ contract CoinflipSale is Auth, SafeMath {
     uint            public  foundersAllocation;   // Amount given to founders
     uint            public  saleAllocation;       // Total amount of sellable tokens
 
-    address         public  foundersWallet;       // wallet address of founder
-
     uint            public  startTime;
     uint            public  endTime;
     uint            public  duration;
@@ -40,13 +38,17 @@ contract CoinflipSale is Auth, SafeMath {
     uint            internal  tierTwoLimit;         // tierTwo price threshold
     uint            internal  tierThreeLimit;       // tierThree price threshold
 
-    uint            public  totalMinted   = 0;    // total # of tokens minted, denomianted in 0 decimals for clarity
-    uint            public  weiAmount     = 0;    // total amount of ether raised
-
-    bool            public  saleFinalized = false;          // has Coinflip sale finalized?
-    bool            public  saleStopped   = false;          // has Coinflip stopped selling?
-
     uint            public  fundingMinimum;                 // minimum-funding amount in Wei
+
+
+    // PRE-SETS
+    uint            public  totalMinted    = 0;    // total # of tokens minted, denomianted in 0 decimals for clarity
+    uint            public  weiAmount      = 0;    // total amount of ether raised
+
+    bool            public  saleFinalized  = false;          // has Coinflip sale finalized?
+    bool            public  saleStopped    = false;          // has Coinflip stopped selling?
+
+    address         public  foundersWallet = 0x0A9237Cd0F52834dBD4576F1A944Cdf3Fb3E2e97;       // wallet address of founder
 
     uint  constant  internal  decimalMultiplier    = 10**18 ;     // ether-to-Wei conversion
     /*uint  constant  internal  MINIMUM_TOKEN_SUPPLY = 5000000; // MINIMUM ETHER supply - Refer to Coinflip Sale subsection*/
@@ -77,20 +79,18 @@ contract CoinflipSale is Auth, SafeMath {
     function CoinflipSale(
         uint     _startTime,
         uint     _duration,
-        address  _foundersWallet,
         uint     _fundingMinimum
     ) {
         startTime          = _startTime;
         duration           = _duration;
         endTime            = _startTime + (_duration * 1 days);
-        foundersWallet     = _foundersWallet;
         fundingMinimum     = _fundingMinimum * 1 ether;
 
         totalSupply        = 0;                  // Total number of tokens minted  (in 18 decimal places)
         totalMinted        = 0;                  // Initial Mint amount is         (in 0 decimal places)
         saleAllocation     = 50000000;           // Total number of tokens minted  (in 0 decimal places)
 
-        price              = 2500  ;             // - FALL BACK PRICE                  - 0.12 USD/FLP
+        price              = 2500 ;              // - FALL BACK PRICE                  - 0.12 USD/FLP
         tierOne            = 3750 ;              // - ADJUSTED 1 HOUR BEFORE CROWDSALE - 0.08  USD/FLP
         tierTwo            = 3000 ;              // - ADJUSTED 1 HOUR BEFORE CROWDSALE - 0.1  USD/FLP
         tierThree          = 2500 ;              // - ADJUSTED 1 HOUR BEFORE CROWDSALE - 0.12 USD/FLP
@@ -100,23 +100,17 @@ contract CoinflipSale is Auth, SafeMath {
         tierThreeLimit     = 10000000;           // - MAY ADJUST  - last 10 MILof total tokens sold @ tierThree price in Wei
 
         // Sanity checks
-        assert(startTime >= time());
+        // assert(startTime >= time());
         assert(endTime >= startTime);
-        assert(_foundersWallet != 0x0);
-        assert(_fundingMinimum >= 0);
+        /*assert(_foundersWallet != 0x0);*/
+        assert(fundingMinimum >= 0);
 
-    }
+        // Creates Flipcoin
+        Flipcoin = new Flipcoin20();
 
+        // Set Founder
+        setFounder(foundersWallet);
 
-    function initializeToken()
-             auth
-             public
-    {
-      // Creates Flipcoin
-      Flipcoin = new Flipcoin20();
-
-      // Set Founder
-      setFounder();
     }
 
     ////////////////////////////////////////
@@ -125,7 +119,9 @@ contract CoinflipSale is Auth, SafeMath {
 
     // @dev: Main buying function for token sale. Calls buyInternal function with sender address
 
-    function Buy() public payable
+    function Buy()
+             public
+             payable
     {
        buyInternal(msg.sender);
     }
@@ -149,6 +145,38 @@ contract CoinflipSale is Auth, SafeMath {
     ////////////////////////////////////////
     /* ------- Internal Functions ------- */
     ////////////////////////////////////////
+
+    // @dev: buyInternal is an internal function that receives ether and assigns
+    //       Flipcoins to contributer
+    // @param: (address) address of contributer
+
+    function buyInternal(address _address)
+        internal
+        during_sale_period
+        not_finalized
+        not_stopped
+        non_zero_address(_address)
+        min_eth
+    {
+
+        // Price calculation
+        uint salePrice = getPrice(totalMinted);
+        uint reward = mul(salePrice, msg.value);
+
+        // Capped crowdsale at 50 million tokens sold
+        require(withinCap(totalSupply, reward));
+
+        //Update metrics
+        weiAmount += msg.value * 1 ether;
+        userBuys[_address] += reward;
+
+        //Assign Flipcoins to investor
+        assignFlipcoin(msg.sender,reward);
+
+        //Push ether to foundersWallet
+        sendToWallet(msg.value);
+
+    }
 
     // @dev: isBetween is an internal function that determines if the supplied value is in between the lower and upper bound
     // @param: (uint) _lowerBound is the lower bound for domain logic
@@ -237,39 +265,6 @@ contract CoinflipSale is Auth, SafeMath {
    ////////////////////////////////////////
 
 
-   // @dev: buyInternal is an internal function that receives ether and assigns
-   //       Flipcoins to contributer
-   // @param: (address) address of contributer
-
-   function buyInternal(address _address)
-       private
-       during_sale_period
-       not_finalized
-       not_stopped
-       non_zero_address(_address)
-       min_eth
-   {
-
-       // Price calculation
-       uint salePrice = getPrice(totalMinted);
-       uint reward = mul(salePrice, msg.value);
-
-       // Capped crowdsale at 50 million tokens sold
-       require(withinCap(totalSupply, reward));
-
-       //Update metrics
-       weiAmount += msg.value * 1 ether;
-       userBuys[_address] += reward;
-
-       //Assign Flipcoins to investor
-       assignFlipcoin(msg.sender,reward);
-
-       //Push ether to foundersWallet
-       sendToWallet(msg.value);
-
-   }
-
-
    // @dev: assignFlipcoin is a private function that mints contributer given amount in wei-FLP amount
    // @param: (address) address of token receiver
    // @param: (uint) the amount of flipcoins in wei-FLP conversion
@@ -277,7 +272,6 @@ contract CoinflipSale is Auth, SafeMath {
    // @notice: minumum eth deposit is 0.01 ether. Base price is >= 100, upholding uint type
 
    function assignFlipcoin(address receiver, uint amount)
-            auth
             private
    {
      Flipcoin.mint(receiver, amount);
@@ -327,7 +321,6 @@ contract CoinflipSale is Auth, SafeMath {
 
    // @dev: sendToWallet is a private function that forwards the contract ether to founder's MultiSig Wallet
    function sendToWallet(uint balance)
-            auth
             private
    {
        uint amount = balance;
@@ -350,7 +343,7 @@ contract CoinflipSale is Auth, SafeMath {
    // @notice: All owner functions must have the not_finalized modifier
    // @dev: emergecyStop is a public function that allows the contract owner to stop the token
    // -------in an unexpected event. The sale can only stopped during the token sale.
-   function emergencyStop()
+   function saleStop()
             auth
             during_sale_period
             not_stopped
